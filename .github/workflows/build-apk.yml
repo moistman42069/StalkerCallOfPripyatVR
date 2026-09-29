@@ -75,6 +75,10 @@ jobs:
     - name: Build Debug APK
       run: ./gradlew assembleDebug --stacktrace --info
 
+    - name: Report C/C++ compiler cache
+      if: always()
+      run: ccache --show-stats
+
     - name: Save C/C++ compiler cache
       if: always()
       uses: actions/cache/save@v4

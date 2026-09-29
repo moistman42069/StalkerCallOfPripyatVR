@@ -402,9 +402,10 @@ diff --git a/src/xrGame/ui_export_script.cpp b/src/xrGame/ui_export_script.cpp
 diff --git a/src/xrAICore/AISpaceBase.cpp b/src/xrAICore/AISpaceBase.cpp
 --- a/src/xrAICore/AISpaceBase.cpp
 +++ b/src/xrAICore/AISpaceBase.cpp
-@@ -1,6 +1,7 @@
+@@ -1,6 +1,8 @@
  #include "pch.hpp"
  #include "AISpaceBase.hpp"
++#include "Navigation/graph_engine_space.h"
 +#include "Components/problem_solver.h"
  #include "Navigation/game_graph.h"
  #include "Navigation/level_graph.h"
