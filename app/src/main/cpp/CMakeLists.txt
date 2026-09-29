@@ -19,6 +19,13 @@ add_compile_definitions(
     XRAY_STATIC_BUILD
     dSINGLE  # ODE physics engine: use single-precision floats
     USE_OGL  # Use OpenGL ES rendering backend
+    R_GL=0
+    R_R1=1
+    R_R2=2
+    R_R3=3
+    R_R4=4
+    RENDER=R_GL
+    RENDER_NAMESPACE=render_gl
 )
 
 # Build configuration (needed for Platform.hpp line 108 check)
