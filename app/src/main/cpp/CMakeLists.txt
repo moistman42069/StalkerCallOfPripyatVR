@@ -257,6 +257,10 @@ target_link_libraries(xrPhysics PRIVATE
 # Add the renderer after its particle library exists so CMake records the
 # dependency as a target instead of a bare linker name.
 add_subdirectory(${XRAY_SRC}/Layers/xrRenderPC_GL ${CMAKE_CURRENT_BINARY_DIR}/xrRenderPC_GL)
+# xrRenderPC_GL's upstream CMake uses CMAKE_SOURCE_DIR for this directory.
+# In an Android app subdirectory that resolves to app/src/main/cpp, so add the
+# actual renderer R2 include path explicitly for headers such as r2.h.
+target_include_directories(xrRender_GL PRIVATE ${XRAY_SRC}/Layers/xrRender_R2)
 
 # xrServerEntities
 file(GLOB_RECURSE XRSERVER_SOURCES ${XRAY_SRC}/xrServerEntities/*.cpp)

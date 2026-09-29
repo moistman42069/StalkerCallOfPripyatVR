@@ -12,6 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       CCACHE_DIR: ${{ github.workspace }}/.ccache
+      CCACHE_COMPILERCHECK: "string:android-ndk-25.2.9519653"
     
     steps:
     - name: Checkout repository
