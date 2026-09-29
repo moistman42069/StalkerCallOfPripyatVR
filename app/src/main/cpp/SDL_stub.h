@@ -673,7 +673,9 @@ inline SDL_Window* SDL_CreateWindow(const char* title, int x, int y, int w, int 
     window->y = y;
     window->w = SDL_AndroidSurfaceWidth();
     window->h = SDL_AndroidSurfaceHeight();
-    window->flags = flags | 0x00000004 | 0x00000002;
+    // SHOWN | OPENGL | INPUT_FOCUS; Android activity owns the foreground
+    // surface and does not send SDL_WINDOWEVENT_FOCUS_GAINED.
+    window->flags = flags | 0x00000004 | 0x00000002 | 0x00000200;
     window->id = 1;
     return window;
 #else

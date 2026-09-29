@@ -98,6 +98,10 @@ int android_xray_init(const char* dataPath, const char* gameDataPath) {
     try {
         g_application = std::make_unique<CApplication>(commandLine.c_str(), &xrGame, g_renderModules);
         Device.Run();
+        // CApplication::Run normally dispatches SDL_WINDOWEVENT_FOCUS_GAINED.
+        // Android owns the window and does not generate SDL events, so mark
+        // its foreground GLSurfaceView active explicitly before frame work.
+        Device.OnWindowActivate(Device.m_sdlWnd, true);
         g_engineInitialized = true;
         LOGI("Call of Pripyat engine startup completed");
         return 0;
