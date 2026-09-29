@@ -298,6 +298,7 @@ using D3DVERTEXELEMENT9 = VertexElement;
 
 // Rendering types from xrEngine
 #include "xrEngine/Render.h"
+#include "xrRender_R2/r2_types.h"  // Shared GL/R2 render-target names used by OpenXRay blenders
 #include "xrEngine/device.h"        // CRenderDevice (Device object)
 
 // Property system for shader blenders (xrP_TOKEN, xrP_Integer, xrP_BOOL)
@@ -342,6 +343,17 @@ namespace xray::render::RENDER_NAMESPACE {
 #include "Layers/xrRender/Shader.h"
 #include "Layers/xrRender/Blender.h"           // IBlender base class
 #include "Layers/xrRender/Blender_Recorder.h"  // CBlender_Compile definition
+
+// GL renderer helper from the upstream xrRenderPC_GL precompiled header.
+namespace xray::render::RENDER_NAMESPACE {
+    inline void jitter(CBlender_Compile& C)
+    {
+        C.r_Sampler("jitter0", JITTER(0), true, D3DTADDRESS_WRAP, D3DTEXF_POINT, D3DTEXF_NONE, D3DTEXF_POINT);
+        C.r_Sampler("jitter1", JITTER(1), true, D3DTADDRESS_WRAP, D3DTEXF_POINT, D3DTEXF_NONE, D3DTEXF_POINT);
+        C.r_Sampler("jitter2", JITTER(2), true, D3DTADDRESS_WRAP, D3DTEXF_POINT, D3DTEXF_NONE, D3DTEXF_POINT);
+        C.r_Sampler("jitter3", JITTER(3), true, D3DTADDRESS_WRAP, D3DTEXF_POINT, D3DTEXF_NONE, D3DTEXF_POINT);
+    }
+}
 
 // CResourceManager - shader/texture resource manager (real implementation, not stub!)
 #include "Layers/xrRender/ResourceManager.h"
@@ -416,6 +428,7 @@ namespace xray::render::RENDER_NAMESPACE {
         // Dynamic lighting system (used by Light_DB.cpp, LightTrack.cpp)
         void* L_Dynamic = nullptr;              // Dynamic lights container
         bool is_sun_static() const { return false; }  // Sun is dynamic in this Android renderer shim
+        int m_MSAASample = 0;                 // Current OpenGL multisample mode
         CLight_DB Lights;                        // Light database used by sun/light queries
 
         // Render state flags (legacy DirectX 9 renderer)
