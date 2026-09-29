@@ -352,7 +352,15 @@ namespace xray::render::RENDER_NAMESPACE {
 #include "Layers/xrRender/FBasicVisual.h"
 
 // R_feedback base class (needed by light_smapvis.h line 5 - fixes 8 errors in Build #224)
-#include "Layers/xrRender/r__dsgraph_structure.h"
+// Declare only the feedback interface here. Including the upstream scene-graph
+// header also defines R_dsgraph_structure, which conflicts with the Android
+// compatibility structure declared below.
+namespace xray::render::RENDER_NAMESPACE {
+    class R_feedback {
+    public:
+        virtual void rfeedback_static(dxRender_Visual* V) = 0;
+    };
+}
 
 // DirectX extensions - Flight structure (needed by light.h line 42 - fixes 20 errors in Build #223)
 #include "Common/_d3d_extensions.h"
