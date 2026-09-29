@@ -45,6 +45,8 @@ using D3DRENDERSTATETYPE = u32;  // Render state type (DirectX state IDs)
 using D3DSAMPLERSTATETYPE = u32; // Sampler state type (DirectX sampler state IDs)
 
 // DirectX primitive topology constants (map to OpenGL ES primitive types)
+#define D3DLIGHT_POINT 1
+
 #define D3DPT_POINTLIST     GL_POINTS          // Point list
 #define D3DPT_LINELIST      GL_LINES           // Line list
 #define D3DPT_LINESTRIP     GL_LINE_STRIP      // Line strip
@@ -298,6 +300,7 @@ using D3DVERTEXELEMENT9 = VertexElement;
 
 // Rendering types from xrEngine
 #include "xrEngine/Render.h"
+#include "xrParticles/psystem.h"  // Particle system definitions required by GL renderer models
 #include "xrRender_R2/r2_types.h"  // Shared GL/R2 render-target names used by OpenXRay blenders
 #include "xrEngine/device.h"        // CRenderDevice (Device object)
 
@@ -437,6 +440,7 @@ namespace xray::render::RENDER_NAMESPACE {
             u32 ffp = 0;                    // Fixed-function pipeline flags
             u32 no_detail_textures = 0;     // Disable detail textures flag
             bool advancedpp = false;         // Advanced post-processing feature flag
+            bool noshadows = false;           // Shadow rendering toggle
         } o;
 
         // Vertex buffers for common geometry (used by FLOD.cpp, FSkinned.cpp)
