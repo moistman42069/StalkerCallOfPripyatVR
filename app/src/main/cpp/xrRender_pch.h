@@ -356,6 +356,7 @@ namespace xray::render::RENDER_NAMESPACE {
 }
 
 // CResourceManager - shader/texture resource manager (real implementation, not stub!)
+#include "Layers/xrRender/xrRender_console.h"
 #include "Layers/xrRender/ResourceManager.h"
 
 #include "Layers/xrRender/R_Backend.h"         // CBackend definition (uses CHW::IMM_CTX_ID)
@@ -435,6 +436,7 @@ namespace xray::render::RENDER_NAMESPACE {
         struct {
             u32 ffp = 0;                    // Fixed-function pipeline flags
             u32 no_detail_textures = 0;     // Disable detail textures flag
+            bool advancedpp = false;         // Advanced post-processing feature flag
         } o;
 
         // Vertex buffers for common geometry (used by FLOD.cpp, FSkinned.cpp)
