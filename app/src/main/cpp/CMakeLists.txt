@@ -9,6 +9,26 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 set(XRAY_SRC ${CMAKE_CURRENT_SOURCE_DIR}/../../../../xray-16/src)
 set(XRAY_EXTERNALS ${CMAKE_CURRENT_SOURCE_DIR}/../../../../xray-16/Externals)
 set(XRAY_SDK ${CMAKE_CURRENT_SOURCE_DIR}/../../../../xray-16/sdk)
+include(${CMAKE_CURRENT_SOURCE_DIR}/../../../../xray-16/cmake/utils.cmake)
+
+# Keep OpenXRay's offline main menu on Android while omitting its desktop-only
+# GameSpy login code. The patch is applied to the checked-out submodule only.
+file(READ ${XRAY_SRC}/xrGame/MainMenu.cpp XR_MAIN_MENU_SOURCE)
+string(FIND "${XR_MAIN_MENU_SOURCE}" "ANDROID_OFFLINE_MAIN_MENU" XR_MAIN_MENU_PATCHED)
+file(READ ${XRAY_SRC}/Layers/xrRenderGL/glHW.cpp XR_GL_HW_SOURCE)
+string(FIND "${XR_GL_HW_SOURCE}" "gladLoadGLES2" XR_GLES_RENDERER_PATCHED)
+if(XR_MAIN_MENU_PATCHED EQUAL -1 OR XR_GLES_RENDERER_PATCHED EQUAL -1)
+    execute_process(
+        COMMAND patch -p1 --forward -i ${CMAKE_CURRENT_SOURCE_DIR}/patches/MainMenu.android.patch
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/../../../../xray-16
+        RESULT_VARIABLE XR_MAIN_MENU_PATCH_RESULT
+        OUTPUT_VARIABLE XR_MAIN_MENU_PATCH_OUTPUT
+        ERROR_VARIABLE XR_MAIN_MENU_PATCH_ERROR
+    )
+    if(NOT XR_MAIN_MENU_PATCH_RESULT EQUAL 0)
+        message(FATAL_ERROR "Could not apply Android main-menu patch: ${XR_MAIN_MENU_PATCH_OUTPUT}${XR_MAIN_MENU_PATCH_ERROR}")
+    endif()
+endif()
 
 # Platform defines
 add_compile_definitions(
@@ -18,7 +38,7 @@ add_compile_definitions(
     XR_PLATFORM_LINUX
     XRAY_STATIC_BUILD
     dSINGLE  # ODE physics engine: use single-precision floats
-    USE_OGL  # Use OpenGL ES rendering backend
+    USE_OGL  # Use OpenXRay's OpenGL ES renderer path
     R_GL=0
     R_R1=1
     R_R2=2
@@ -64,6 +84,7 @@ include_directories(
     ${XRAY_SRC}/xrPhysics
     ${XRAY_SRC}/xrParticles
     ${XRAY_SRC}/xrUICore
+    ${XRAY_SRC}/xrAICore
     ${XRAY_SRC}/Layers
     ${XRAY_SRC}/Common
     ${XRAY_SRC}/Include
@@ -84,6 +105,7 @@ find_library(log-lib log)
 find_library(android-lib android)
 find_library(EGL-lib EGL)
 find_library(GLESv3-lib GLESv3)
+find_library(dl-lib dl)
 
 # xrCore - critical base library
 file(GLOB_RECURSE XRCORE_SOURCES
@@ -153,7 +175,6 @@ target_link_libraries(xrScriptEngine PRIVATE xrCore)
 # xrEngine - main engine
 file(GLOB_RECURSE XRENGINE_SOURCES ${XRAY_SRC}/xrEngine/*.cpp)
 list(FILTER XRENGINE_SOURCES EXCLUDE REGEX ".*xrRender.*")
-list(FILTER XRENGINE_SOURCES EXCLUDE REGEX ".*Device_create.*")
 list(FILTER XRENGINE_SOURCES EXCLUDE REGEX ".*Text_Console.*")
 list(FILTER XRENGINE_SOURCES EXCLUDE REGEX ".*tntQAVI.*")
 add_library(xrEngine STATIC ${XRENGINE_SOURCES})
@@ -167,58 +188,46 @@ target_link_libraries(xrEngine PRIVATE
     xrCDB
 )
 
-# xrRender - shared rendering base (visuals, materials, shaders, geometry)
-file(GLOB_RECURSE XRRENDER_SOURCES ${XRAY_SRC}/Layers/xrRender/*.cpp)
-# Exclude Windows/DirectX specific files
-list(FILTER XRRENDER_SOURCES EXCLUDE REGEX ".*_win32.*")
-list(FILTER XRRENDER_SOURCES EXCLUDE REGEX ".*_dx.*")
-list(FILTER XRRENDER_SOURCES EXCLUDE REGEX ".*Windows.*")
-list(FILTER XRRENDER_SOURCES EXCLUDE REGEX ".*dx.*")
-list(FILTER XRRENDER_SOURCES EXCLUDE REGEX ".*D3D.*")
-list(FILTER XRRENDER_SOURCES EXCLUDE REGEX ".*Editor.*")
-list(FILTER XRRENDER_SOURCES EXCLUDE REGEX ".*_test.*")
-# Exclude R1/R2/R4 DirectX renderers
-list(FILTER XRRENDER_SOURCES EXCLUDE REGEX ".*/R2_.*")
-list(FILTER XRRENDER_SOURCES EXCLUDE REGEX ".*/R4_.*")
-# This blender is R1-only and deliberately rejected when building the R_GL renderer.
-# The glob below sees R1-only blenders that the upstream R_GL target omits.
-list(FILTER XRRENDER_SOURCES EXCLUDE REGEX ".*/blenders/(BlenderDefault|Blender_LaEmB|Blender_Screen_GRAY|Blender_Shadow_Texture|Blender_Shadow_World|Blender_Vertex|Blender_Vertex_aref|blender_light)\\.cpp$")
-# Exclude backend implementations (we'll add GL backend separately)
-list(FILTER XRRENDER_SOURCES EXCLUDE REGEX ".*Backend_Runtime.*")
-list(FILTER XRRENDER_SOURCES EXCLUDE REGEX ".*ShaderCache.*")
-# Exclude files using DirectX FVF (old vertex format, incompatible with OpenGL ES)
-list(FILTER XRRENDER_SOURCES EXCLUDE REGEX ".*DetailManager_soft.*")
-list(FILTER XRRENDER_SOURCES EXCLUDE REGEX ".*D3DUtils.*")
-list(FILTER XRRENDER_SOURCES EXCLUDE REGEX ".*dxEnvironment.*")
-list(FILTER XRRENDER_SOURCES EXCLUDE REGEX ".*dxRain.*")
-list(FILTER XRRENDER_SOURCES EXCLUDE REGEX ".*dxThunderbolt.*")
-# Exclude DirectX 11 deferred rendering blenders (use r_dx11Texture/r_dx11Sampler API)
-list(FILTER XRRENDER_SOURCES EXCLUDE REGEX ".*_deferred\\.cpp$")
-# Exclude HOM.cpp - hardware occlusion manager conflicts with stub in xrRender_pch.h
-list(FILTER XRRENDER_SOURCES EXCLUDE REGEX ".*/HOM\\.cpp$")
-add_library(xrRender STATIC ${XRRENDER_SOURCES})
-target_compile_definitions(xrRender PRIVATE ECORE_API=)
-# Use COMPILE_FLAGS instead of target_compile_options to avoid CMake issues
-set_target_properties(xrRender PROPERTIES
-    COMPILE_FLAGS "-include ${CMAKE_CURRENT_SOURCE_DIR}/xrRender_pch.h"
+# The old Android shim compiled shared renderer files with a placeholder
+# CRenderImplementation. That could never render a game. Build OpenXRay's real
+# OpenGL renderer, which provides the renderer module and R2 implementation.
+add_subdirectory(${XRAY_SRC}/Layers/xrAPI ${CMAKE_CURRENT_BINARY_DIR}/xrAPI)
+
+# This Android target already compiles xrMiscMath's vector/matrix instantiations
+# into xrCore, so expose the upstream dependency name without compiling them twice.
+add_library(xrMiscMath INTERFACE)
+
+# The initial Android boot path has audio disabled. Keep the engine interfaces
+# available through the no-output backend in android_sound.cpp.
+add_library(xrSound INTERFACE)
+
+add_library(xrMaterialSystem STATIC
+    ${XRAY_SRC}/xrMaterialSystem/GameMtlLib.cpp
+    ${XRAY_SRC}/xrMaterialSystem/GameMtlLib_Engine.cpp
 )
-target_link_libraries(xrRender PRIVATE
-    xrCore
-    xrEngine
-    xrCDB
+target_include_directories(xrMaterialSystem PRIVATE ${XRAY_SRC}/xrMaterialSystem)
+target_compile_definitions(xrMaterialSystem PRIVATE XRMTL_LIB_EXPORTS)
+target_link_libraries(xrMaterialSystem PRIVATE xrMiscMath xrAPI xrCore)
+
+set(IMGUI_DIR ${XRAY_EXTERNALS}/imgui)
+add_library(xrImGui STATIC
+    ${IMGUI_DIR}/imgui.cpp
+    ${IMGUI_DIR}/imgui_demo.cpp
+    ${IMGUI_DIR}/imgui_draw.cpp
+    ${IMGUI_DIR}/imgui_tables.cpp
+    ${IMGUI_DIR}/imgui_widgets.cpp
+    ${IMGUI_DIR}/backends/imgui_impl_opengl3.cpp
+)
+target_include_directories(xrImGui PUBLIC ${IMGUI_DIR})
+target_compile_definitions(xrImGui PUBLIC
+    IMGUI_DISABLE_OBSOLETE_KEYIO
+    IMGUI_DISABLE_OBSOLETE_FUNCTIONS
+    IMGUI_DEFINE_MATH_OPERATORS
+    IMGUI_IMPL_OPENGL_ES3
 )
 
-# xrRenderGL - OpenGL ES backend
-file(GLOB_RECURSE XRRENDERGL_SOURCES ${XRAY_SRC}/Layers/xrRenderGL/*.cpp)
-add_library(xrRenderGL STATIC ${XRRENDERGL_SOURCES})
-target_compile_definitions(xrRenderGL PRIVATE ECORE_API=)
-target_link_libraries(xrRenderGL PRIVATE
-    xrCore
-    xrEngine
-    xrRender
-    ${GLESv3-lib}
-    ${EGL-lib}
-)
+add_subdirectory(${XRAY_SRC}/xrAICore ${CMAKE_CURRENT_BINARY_DIR}/xrAICore)
+add_subdirectory(${XRAY_SRC}/xrUICore ${CMAKE_CURRENT_BINARY_DIR}/xrUICore)
 
 # xrParticles - particle system
 file(GLOB_RECURSE XRPARTICLES_SOURCES ${XRAY_SRC}/xrParticles/*.cpp)
@@ -243,6 +252,10 @@ target_link_libraries(xrPhysics PRIVATE
     xrCDB
 )
 
+# Add the renderer after its particle library exists so CMake records the
+# dependency as a target instead of a bare linker name.
+add_subdirectory(${XRAY_SRC}/Layers/xrRenderPC_GL ${CMAKE_CURRENT_BINARY_DIR}/xrRenderPC_GL)
+
 # xrServerEntities
 file(GLOB_RECURSE XRSERVER_SOURCES ${XRAY_SRC}/xrServerEntities/*.cpp)
 # Exclude editor-only files (use Windows types like LPCSTR, BOOL without proper includes)
@@ -252,8 +265,6 @@ list(FILTER XRSERVER_SOURCES EXCLUDE REGEX ".*xrEProps.*")
 list(FILTER XRSERVER_SOURCES EXCLUDE REGEX ".*PropertiesListHelper.*")
 list(FILTER XRSERVER_SOURCES EXCLUDE REGEX ".*script_properties_list_helper.*")
 list(FILTER XRSERVER_SOURCES EXCLUDE REGEX ".*script_rtoken_list.*")
-list(FILTER XRSERVER_SOURCES EXCLUDE REGEX ".*object_factory.*")
-list(FILTER XRSERVER_SOURCES EXCLUDE REGEX ".*object_item_script.*")
 list(FILTER XRSERVER_SOURCES EXCLUDE REGEX ".*script_ini_file.*")
 # Exclude xml_str_id_loader (has variadic function issues with xr_string on Android)
 list(FILTER XRSERVER_SOURCES EXCLUDE REGEX ".*xml_str_id_loader.*")
@@ -264,15 +275,8 @@ target_link_libraries(xrServerEntities PRIVATE xrCore)
 
 # xrGame - game logic
 file(GLOB_RECURSE XRGAME_SOURCES ${XRAY_SRC}/xrGame/*.cpp)
-# Exclude UI for now (complex dependency)
-list(FILTER XRGAME_SOURCES EXCLUDE REGEX ".*ui/.*")
-list(FILTER XRGAME_SOURCES EXCLUDE REGEX ".*UI.*")
-# Exclude UI export script (binds UI/GameSpy methods to Lua)
-list(FILTER XRGAME_SOURCES EXCLUDE REGEX ".*ui_export_script.*")
 # Exclude DynamicHeightMap (uses old RAPID collision API, not used in game)
 list(FILTER XRGAME_SOURCES EXCLUDE REGEX ".*DynamicHeightMap.*")
-# Exclude LevelFogOfWar (depends on UI which is excluded)
-list(FILTER XRGAME_SOURCES EXCLUDE REGEX ".*LevelFogOfWar.*")
 # Exclude GameSpy multiplayer (not needed for single-player Android port)
 list(FILTER XRGAME_SOURCES EXCLUDE REGEX ".*GameSpy.*")
 # Exclude network files (depend on GameSpy, not needed for single-player)
@@ -291,8 +295,7 @@ list(FILTER XRGAME_SOURCES EXCLUDE REGEX ".*(Level_GameSpy|xrGameSpy|Level_netwo
 # Exclude ALL multiplayer game modes (deathmatch, teamdeathmatch, artefacthunt, capture_the_artefact)
 list(FILTER XRGAME_SOURCES EXCLUDE REGEX ".*(deathmatch|teamdeathmatch|artefacthunt|capture_the_artefact).*")
 list(FILTER XRGAME_SOURCES EXCLUDE REGEX ".*(MPPlayersBag).*")
-# Exclude MainMenu and Registry (depend on GameSpy for multiplayer features)
-list(FILTER XRGAME_SOURCES EXCLUDE REGEX ".*(MainMenu|RegistryFuncs).*")
+# Keep MainMenu and the game UI: CGamePersistent creates them during startup.
 # Exclude MathUtils (test/debug code with API incompatibilities)
 list(FILTER XRGAME_SOURCES EXCLUDE REGEX ".*MathUtils.*")
 # Exclude ObjectDump (debug-only code with CObject dependencies, uses Fbox instead of Fbox3)
@@ -317,12 +320,22 @@ target_link_libraries(xrGame PRIVATE
     xrCDB
     xrServerEntities
     xrScriptEngine
+    xrMaterialSystem
+    xrMiscMath
+    xrImGui
+    xrAPI
+    xrAICore
+    xrUICore
+    xrSound
+    xrParticles
+    xrPhysics
 )
 
 # Main JNI wrapper library
 add_library(xray-engine SHARED
     jni_bridge.cpp
     android_main.cpp
+    android_sound.cpp
 )
 
 target_link_libraries(xray-engine
@@ -330,18 +343,20 @@ target_link_libraries(xray-engine
     xrCore
     xrCDB
     xrEngine
-    xrRender
-    xrRenderGL
+    xrRender_GL
     xrParticles
     xrPhysics
-    # xrSound temporarily disabled
     xrScriptEngine
+    xrGame
+    -Wl,--start-group
     xrServerEntities
     xrGame
+    -Wl,--end-group
     ${log-lib}
     ${android-lib}
     ${EGL-lib}
     ${GLESv3-lib}
+    ${dl-lib}
 )
 
 target_compile_options(xray-engine PRIVATE

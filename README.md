@@ -1,21 +1,23 @@
-# S.T.A.L.K.E.R. OpenXRay Android (Native Quest 3 VR port)
+# S.T.A.L.K.E.R. OpenXRay Android (Quest 3 port groundwork)
 
-Native Android port of OpenXRay engine for S.T.A.L.K.E.R.: Call of Pripyat using OpenGL ES 3.0 and Mali GPU acceleration.
+Native ARM64 Android launch path for OpenXRay's S.T.A.L.K.E.R.: Call of Pripyat. The app is wired to the real engine and renderer and requests an OpenGL ES 3.2 surface.
+
+This is the flat-screen Android baseline for the Quest 3 port. OpenXR, stereo eye rendering, headset tracking, and VR controller input are not integrated yet.
 
 ## Features
 
-- ✅ Native ARM64 (aarch64) build for Android
-- ✅ OpenGL ES 3.0 rendering with Mali GPU support
-- ✅ Android Bionic libc compatibility
-- ✅ Full LuaJIT scripting support
-- ✅ Direct access to Mali-G710 hardware acceleration
+- Native ARM64 (aarch64) APK target
+- OpenGL ES 3.2 renderer path
+- Android Bionic libc compatibility
+- Offline single-player main-menu startup path
+- In-app import of user-owned Call of Pripyat data
 - 🔄 Automatic APK builds via GitHub Actions
 
 ## System Requirements
 
 - **Android Version:** 7.0 (API 24) or higher
 - **Architecture:** ARM64-v8a (64-bit ARM)
-- **GPU:** Mali GPU with OpenGL ES 3.0+ support
+- **GPU:** OpenGL ES 3.2 support required
 - **RAM:** 4GB+ recommended
 - **Storage:** 3GB+ for game data
 
@@ -44,57 +46,40 @@ cd Stalker_android
 
 ## Installation
 
-1. Download the APK from [Releases](https://github.com/Standoff2bot/Stalker_android/releases)
-2. Install on your Android device
-3. Copy S.T.A.L.K.E.R.: Call of Pripyat game data to:
-   ```
-   /sdcard/Android/data/com.openxray.stalker/files/
-   ```
-4. Launch the app
+1. Download and install the APK from [Releases](https://github.com/Standoff2bot/Stalker_android/releases)
+2. Launch the app and choose your Call of Pripyat installation folder when prompted. You can also choose its `resources/` folder.
+3. Wait for the app to copy the game data into its app-specific storage, then it will start the game.
 
 ## Game Data Setup
 
-Required files structure:
+The APK supplies `fsgame.ltx` and the OpenXRay OpenGL shaders. The game data is not included. The selected Call of Pripyat folder should contain `resources/` with the `resources.db*` archives. The importer also copies `levels/`, `localization/`, `patches/`, and `gamedata/` when present, while preserving the Android shader files.
+
+The app stores imported files under:
+
 ```
 /sdcard/Android/data/com.openxray.stalker/files/
-├── fsgame.ltx
-├── gamedata/
-│   └── shaders/
-│       └── gl/          # OpenGL shaders (required!)
-├── resources/
-│   ├── configs.db
-│   ├── resources.db0-4
-│   └── ...
-├── levels/
-├── localization/
-└── patches/
+├── fsgame.ltx                 # Supplied by the APK
+├── gamedata/shaders/gl/       # OpenXRay Android shaders, supplied by the APK
+├── resources/                 # Imported Call of Pripyat archives
+├── levels/                    # Imported when present
+├── localization/              # Imported when present
+└── patches/                   # Imported when present
 ```
 
-**Important:** Original game uses DirectX shaders. You must use OpenGL shaders for Android build!
+The folder picker imports data recursively and can take several minutes for a multi-gigabyte installation. For large transfers, files can also be copied manually to the path above.
 
 ## Technical Details
 
 ### Architecture
 
 - **Engine:** OpenXRay (X-Ray Engine 1.6)
-- **Renderer:** OpenGL ES 3.0 (native Mali GPU)
+- **Renderer:** OpenGL ES 3.2
 - **Scripting:** LuaJIT 2.1.0-beta3 (Lua 5.1 API)
-- **Audio:** OpenAL Soft
+- **Audio:** Silent backend for the initial engine boot path
 - **Physics:** ODE (Open Dynamics Engine)
-- **Input:** SDL2 touch/gamepad support
+- **Input:** Android touch and keyboard events feed the engine's SDL-compatible input queue
 
-### Performance
-
-- **Mali-G710 MC10:** 60 FPS (native hardware acceleration)
-- **Mali-G52+:** 30-45 FPS (OpenGL ES 3.0)
-- **Software rendering:** Not recommended
-
-### Differences from PC version
-
-- OpenGL ES 3.0 instead of OpenGL 4.5/DirectX
-- Touch controls and gamepad support
-- Optimized shaders for mobile GPUs
-- Android-specific file paths
+OpenXR stereo rendering, tracked VR input, and game audio remain to be implemented and tested on Quest 3 hardware.
 
 ## Development
 
@@ -108,7 +93,9 @@ Stalker_android/
 │   │   │   └── MainActivity.java         # GLSurfaceView activity
 │   │   ├── cpp/
 │   │   │   ├── jni_bridge.cpp           # JNI native methods
-│   │   │   ├── android_engine_wrapper.cpp
+│   │   │   ├── android_main.cpp         # OpenXRay startup and frame processing
+│   │   │   ├── android_sound.cpp        # Silent boot-time audio backend
+│   │   │   ├── SDL_stub.h               # Android SDL compatibility and input queue
 │   │   │   └── CMakeLists.txt           # NDK build config
 │   │   ├── AndroidManifest.xml
 │   │   └── assets/                       # Game data (optional)
@@ -120,17 +107,16 @@ Stalker_android/
 
 ### Key Components
 
-1. **MainActivity.java** - Creates OpenGL ES 3.0 surface and handles lifecycle
+1. **MainActivity.java** - Creates OpenGL ES 3.2 surface, imports data, and handles lifecycle
 2. **jni_bridge.cpp** - JNI layer between Java and C++ engine
-3. **android_engine_wrapper.cpp** - OpenXRay engine initialization wrapper
+3. **android_main.cpp** - OpenXRay engine initialization and frame processing
 4. **CMakeLists.txt** - Links OpenXRay libraries with Android NDK
 
 ## Original OpenXRay Source
 
-This port uses the OpenXRay engine from:
+This port uses the OpenXRay engine from the checked-out submodule revision:
 - **Repository:** https://github.com/OpenXRay/xray-16
-- **Branch:** xd_dev
-- **Commit:** 29030f81b (Aug 14, 2026)
+- **Revision:** `97b691a986b03488d73058780f6855ed128062a3`
 
 ## Build Status
 

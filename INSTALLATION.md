@@ -2,7 +2,7 @@
 
 ## Where to Put Game Files
 
-After installing the APK, you need to copy your S.T.A.L.K.E.R.: Call of Pripyat game files to your Android device.
+The APK contains the OpenXRay filesystem template and Android OpenGL shaders. You need to import the data from your own S.T.A.L.K.E.R.: Call of Pripyat installation.
 
 ### Installation Path
 
@@ -17,11 +17,10 @@ This directory will be automatically created when you first launch the app.
 
 ```
 /sdcard/Android/data/com.openxray.stalker/files/
-├── fsgame.ltx          # File system configuration (REQUIRED)
-├── gamedata/           # OpenGL shaders and configs
-│   ├── shaders/
-│   │   └── gl/         # OpenGL ES shaders (REQUIRED for Android)
-│   └── configs/        # Optional: custom configs
+├── fsgame.ltx          # Supplied by the APK
+├── gamedata/
+│   ├── shaders/gl/     # OpenXRay Android shaders, supplied by the APK
+│   └── configs/        # Imported from the game when present
 ├── resources/          # Packed game resources (REQUIRED)
 │   ├── configs.db
 │   ├── resources.db0
@@ -41,7 +40,15 @@ This directory will be automatically created when you first launch the app.
 
 ## Step-by-Step Installation
 
-### Option 1: Using ADB (Recommended for Large Files)
+### Option 1: In-App Import
+
+1. Install and launch the APK.
+2. When prompted, choose the Call of Pripyat installation folder or its `resources/` folder.
+3. Wait while the app imports the `resources/` archives and any `levels/`, `localization/`, `patches/`, and `gamedata/` folders it finds.
+
+Importing several gigabytes can take several minutes. Choosing the installation root lets the app copy the additional folders when they are present.
+
+### Option 2: Using ADB
 
 1. Connect your Android device to PC via USB
 2. Enable USB debugging in Developer Options
@@ -58,69 +65,55 @@ This directory will be automatically created when you first launch the app.
    adb push localization /sdcard/Android/data/com.openxray.stalker/files/localization/
    ```
 
-### Option 2: Manual Copy via File Manager
+### Option 3: Manual Copy via File Manager
 
 1. Copy your STALKER installation folder to your device (USB cable or cloud storage)
 2. Use a file manager app (like "Files by Google" or "Total Commander")
 3. Navigate to `/sdcard/Android/data/com.openxray.stalker/files/`
 4. Copy the required folders there
 
-### Option 3: Using Total Commander Plugin
+### Option 4: Using Total Commander Plugin
 
 1. Install Total Commander on Android
 2. Connect to your PC via WiFi or USB
 3. Copy game folders directly
 
-## Important: OpenGL Shaders
+## OpenGL Shaders
 
-**The original game uses DirectX shaders which will NOT work on Android!**
-
-You **MUST** use OpenGL shaders. Get them from:
-- OpenXRay repository: https://github.com/OpenXRay/xray-16/tree/xd_dev/res/gamedata/shaders/gl
-- Or use precompiled shaders from OpenXRay releases
-
-Place OpenGL shaders in:
-```
-/sdcard/Android/data/com.openxray.stalker/files/gamedata/shaders/gl/
-```
+The APK installs the OpenXRay OpenGL shader set at `gamedata/shaders/gl/`. The importer skips this directory if the PC installation also contains shader files.
 
 ## Minimal Installation (Testing)
 
 For initial testing, minimum required files (~2-3 GB):
-1. `fsgame.ltx`
-2. `resources/` folder with all .db files
-3. `gamedata/shaders/gl/` folder with OpenGL shaders
-4. `levels/l01_escape/` (first level)
-5. `localization/rus.xml` or `eng.xml`
+1. `resources/` folder with the `resources.db*` archives
+2. `levels/` and `localization/` folders from the installation, when present
 
 ## Troubleshooting
 
-### App crashes on startup
+### App fails to start
 - Check logcat: `adb logcat | grep OpenXRay`
 - Verify `fsgame.ltx` exists
-- Ensure OpenGL shaders are present in `gamedata/shaders/gl/`
+- Ensure the selected folder contained the `resources.db*` archives
 
 ### "Cannot find shader" error
-- You're using DirectX shaders instead of OpenGL
-- Download OpenGL shaders from OpenXRay repository
-- Place them in `gamedata/shaders/gl/` directory
+- Check that the APK installed its files under `gamedata/shaders/gl/`
+- Reinstall the APK if those files were removed
 
 ### "Cannot open file" errors
 - Check file permissions
 - Verify paths are correct (case-sensitive!)
 - Ensure all .db archives are present in `resources/`
 
-### Black screen after loading
-- OpenGL ES context may not be initialized
-- Check GPU compatibility (requires OpenGL ES 3.0+)
-- Try disabling advanced graphics features in settings
+### OpenGL ES context error
+- This build requires an OpenGL ES 3.2 context
+- Confirm the device reports GLES 3.2 support
 
 ## File Sizes Reference
 
 Approximate sizes for Call of Pripyat:
 - `resources/*.db` - ~1.5 GB
 - `levels/` - ~700 MB
-- `gamedata/shaders/gl/` - ~50 MB
+- `gamedata/shaders/gl/` - installed from the APK
 - `localization/` - ~10 MB
 
 **Total required: ~2.3 GB minimum**

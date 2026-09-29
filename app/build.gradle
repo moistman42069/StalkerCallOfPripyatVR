@@ -57,7 +57,7 @@ android {
 
     sourceSets {
         main {
-            assets.srcDirs = ['src/main/assets']
+            assets.srcDirs = ['src/main/assets', rootProject.file('xray-16/res')]
             jniLibs.srcDirs = ['src/main/jniLibs']
         }
     }

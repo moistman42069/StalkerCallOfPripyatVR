@@ -8,6 +8,12 @@
 #include <cstring>
 #include <cstdio>
 #include <cstdint>
+#include <deque>
+#include <mutex>
+#if defined(__ANDROID__)
+#include <EGL/egl.h>
+#include <dlfcn.h>
+#endif
 #else
 #include <stdlib.h>
 #include <string.h>
@@ -285,6 +291,11 @@ typedef uint8_t Uint8;
 // SDL event types
 #define SDL_QUIT 0x100
 
+#define SDL_RELEASED 0
+#define SDL_PRESSED 1
+#define SDL_BUTTON_LEFT 1
+#define SDL_BUTTON_LMASK 0x00000001
+
 // SDL controller axis count
 #define SDL_CONTROLLER_AXIS_MAX 6
 
@@ -294,12 +305,37 @@ typedef uint8_t Uint8;
 // Forward declarations for SDL types (minimal stubs)
 struct SDL_GameController;
 struct SDL_Cursor;
-struct SDL_Window;
 
 // Typedefs for C compatibility (allow using SDL_Window instead of struct SDL_Window)
 typedef struct SDL_GameController SDL_GameController;
 typedef struct SDL_Cursor SDL_Cursor;
-typedef struct SDL_Window SDL_Window;
+typedef struct SDL_Window {
+    int x, y, w, h;
+    Uint32 flags;
+    Uint32 id;
+} SDL_Window;
+typedef void* SDL_GLContext;
+
+#ifdef __cplusplus
+inline int& SDL_AndroidSurfaceWidth() {
+    static int width = 1920;
+    return width;
+}
+inline int& SDL_AndroidSurfaceHeight() {
+    static int height = 1080;
+    return height;
+}
+inline SDL_Window* SDL_AndroidMainWindow() {
+    static SDL_Window window{0, 0, 1920, 1080, 0, 1};
+    return &window;
+}
+inline void SDL_SetAndroidSurfaceSize(int width, int height) {
+    SDL_AndroidSurfaceWidth() = width > 0 ? width : 1920;
+    SDL_AndroidSurfaceHeight() = height > 0 ? height : 1080;
+    SDL_AndroidMainWindow()->w = SDL_AndroidSurfaceWidth();
+    SDL_AndroidMainWindow()->h = SDL_AndroidSurfaceHeight();
+}
+#endif
 
 // SDL rectangle structure
 typedef struct SDL_Rect {
@@ -599,16 +635,50 @@ inline void SDL_PumpEvents() {
     // No-op on Android - event handling done via JNI
 }
 
-// SDL_PushEvent - stub for Android (no-op)
+// GLSurfaceView/JNI feeds Android touch and keyboard events through this queue.
+#ifdef __cplusplus
+inline std::deque<SDL_Event>& SDL_AndroidEventQueue() {
+    static std::deque<SDL_Event> events;
+    return events;
+}
+inline std::mutex& SDL_AndroidEventMutex() {
+    static std::mutex mutex;
+    return mutex;
+}
+#endif
+
+// SDL_PushEvent - enqueue an event for OpenXRay's input update.
 inline int SDL_PushEvent(SDL_Event* event) {
-    // No-op on Android - event handling done via JNI
-    return 1; // Return success
+    if (!event)
+        return -1;
+#ifdef __cplusplus
+    std::lock_guard<std::mutex> lock(SDL_AndroidEventMutex());
+    auto& events = SDL_AndroidEventQueue();
+    if (events.size() >= 4096)
+        events.pop_front();
+    events.push_back(*event);
+    return 1;
+#else
+    return 0;
+#endif
 }
 
 // SDL_CreateWindow - stub for Android (returns nullptr)
 inline SDL_Window* SDL_CreateWindow(const char* title, int x, int y, int w, int h, Uint32 flags) {
-    // No-op on Android - window management done via JNI
-    return nullptr;
+#ifdef __cplusplus
+    // GLSurfaceView owns the actual Android window and EGL context. OpenXRay
+    // still needs a non-null SDL handle for renderer bookkeeping.
+    SDL_Window* window = SDL_AndroidMainWindow();
+    window->x = x;
+    window->y = y;
+    window->w = SDL_AndroidSurfaceWidth();
+    window->h = SDL_AndroidSurfaceHeight();
+    window->flags = flags | 0x00000004 | 0x00000002;
+    window->id = 1;
+    return window;
+#else
+    return NULL;
+#endif
 }
 
 // SDL_DestroyWindow - stub for Android (no-op)
@@ -822,8 +892,7 @@ inline const char* SDL_GetDisplayName(int displayIndex) {
 }
 
 inline Uint32 SDL_GetWindowFlags(SDL_Window* window) {
-    // Return default flags
-    return SDL_WINDOW_SHOWN | SDL_WINDOW_OPENGL;
+    return window ? window->flags : SDL_WINDOW_SHOWN | SDL_WINDOW_OPENGL;
 }
 
 inline int SDL_SetWindowOpacity(SDL_Window* window, float opacity) {
@@ -841,13 +910,19 @@ inline void SDL_SetWindowPosition(SDL_Window* window, int x, int y) {
 }
 
 inline void SDL_SetWindowSize(SDL_Window* window, int w, int h) {
-    // No-op on Android
+#ifdef __cplusplus
+    if (window) {
+        // The Android surface is owned and sized by GLSurfaceView. OpenXRay's
+        // desktop window configuration must not resize the Quest framebuffer.
+        window->w = SDL_AndroidSurfaceWidth();
+        window->h = SDL_AndroidSurfaceHeight();
+    }
+#endif
 }
 
 inline void SDL_GetWindowSize(SDL_Window* window, int* w, int* h) {
-    // Return fake size
-    if (w) *w = 1920;
-    if (h) *h = 1080;
+    if (w) *w = window ? window->w : 1920;
+    if (h) *h = window ? window->h : 1080;
 }
 
 inline void SDL_GetWindowPosition(SDL_Window* window, int* x, int* y) {
@@ -860,8 +935,13 @@ inline int SDL_GetDisplayMode(int displayIndex, int modeIndex, SDL_DisplayMode* 
     // Return fake display mode
     if (mode) {
         mode->format = 0;
+#ifdef __cplusplus
+        mode->w = SDL_AndroidSurfaceWidth();
+        mode->h = SDL_AndroidSurfaceHeight();
+#else
         mode->w = 1920;
         mode->h = 1080;
+#endif
         mode->refresh_rate = 60;
         mode->driverdata = nullptr;
     }
@@ -944,6 +1024,7 @@ inline void SDL_HideWindow(SDL_Window* window) {
 // Event types
 #define SDL_DISPLAYEVENT 0x150
 #define SDL_WINDOWEVENT 0x200
+#define SDL_PEEKEVENT 2
 
 // Display event types
 #define SDL_DISPLAYEVENT_ORIENTATION 0
@@ -1024,7 +1105,11 @@ inline void SDL_RaiseWindow(SDL_Window* window) {
 }
 
 inline SDL_Window* SDL_GetWindowFromID(Uint32 id) {
-    return nullptr; // No window lookup on Android stub
+#ifdef __cplusplus
+    return id == 1 ? SDL_AndroidMainWindow() : nullptr;
+#else
+    return NULL;
+#endif
 }
 
 inline int SDL_BlitSurface(void* src, void* srcrect, void* dst, void* dstrect) {
@@ -1036,8 +1121,83 @@ inline void SDL_FreeSurface(void* surface) {
 }
 
 inline int SDL_PeepEvents(SDL_Event* events, int numevents, int action, Uint32 minType, Uint32 maxType) {
-    return 0; // No events on Android stub
+#ifdef __cplusplus
+    if (action != SDL_GETEVENT && action != SDL_PEEKEVENT)
+        return -1;
+    std::lock_guard<std::mutex> lock(SDL_AndroidEventMutex());
+    auto& queue = SDL_AndroidEventQueue();
+    int count = 0;
+    for (auto it = queue.begin(); it != queue.end();) {
+        if (it->type >= minType && it->type <= maxType) {
+            if (events && count < numevents)
+                events[count] = *it;
+            ++count;
+            if (action == SDL_GETEVENT && events && count <= numevents)
+                it = queue.erase(it);
+            else
+                ++it;
+            if (events && count >= numevents)
+                break;
+        } else {
+            ++it;
+        }
+    }
+    return count;
+#else
+    return 0;
+#endif
 }
+
+// OpenXRay's GL renderer shares the EGL context created by GLSurfaceView.
+#define SDL_GL_RED_SIZE 0
+#define SDL_GL_GREEN_SIZE 1
+#define SDL_GL_BLUE_SIZE 2
+#define SDL_GL_ALPHA_SIZE 3
+#define SDL_GL_DOUBLEBUFFER 5
+#define SDL_GL_DEPTH_SIZE 6
+#define SDL_GL_STENCIL_SIZE 7
+#define SDL_GL_CONTEXT_MAJOR_VERSION 17
+#define SDL_GL_CONTEXT_MINOR_VERSION 18
+#define SDL_GL_CONTEXT_PROFILE_MASK 21
+#define SDL_GL_CONTEXT_PROFILE_CORE 1
+
+#ifdef __cplusplus
+inline int SDL_GL_SetAttribute(int attribute, int value) { return 0; }
+inline SDL_GLContext SDL_GL_CreateContext(SDL_Window* window) {
+#if defined(__ANDROID__)
+    return eglGetCurrentContext() == EGL_NO_CONTEXT ? nullptr : reinterpret_cast<void*>(1);
+#else
+    return reinterpret_cast<void*>(1);
+#endif
+}
+inline int SDL_GL_MakeCurrent(SDL_Window* window, SDL_GLContext context) {
+#if defined(__ANDROID__)
+    return context && eglGetCurrentContext() == EGL_NO_CONTEXT ? -1 : 0;
+#else
+    return 0;
+#endif
+}
+inline SDL_GLContext SDL_GL_GetCurrentContext() {
+#if defined(__ANDROID__)
+    return eglGetCurrentContext() == EGL_NO_CONTEXT ? nullptr : reinterpret_cast<void*>(1);
+#else
+    return reinterpret_cast<void*>(1);
+#endif
+}
+inline void SDL_GL_DeleteContext(SDL_GLContext context) {}
+inline int SDL_GL_SetSwapInterval(int interval) { return 0; }
+inline void SDL_GL_SwapWindow(SDL_Window* window) {}
+inline void* SDL_GL_GetProcAddress(const char* name) {
+#if defined(__ANDROID__)
+    void* proc = dlsym(RTLD_DEFAULT, name);
+    if (!proc)
+        proc = reinterpret_cast<void*>(eglGetProcAddress(name));
+    return proc;
+#else
+    return nullptr;
+#endif
+}
+#endif
 
 // Add ALL remaining missing SDL constants and functions
 
@@ -1061,9 +1221,6 @@ inline int SDL_PeepEvents(SDL_Event* events, int numevents, int action, Uint32 m
 #define SDL_CONTROLLERDEVICEREMAPPED 0x655
 #define SDL_CONTROLLERTOUCHPADUP 0x658
 #define SDL_CONTROLLERSENSORUPDATE 0x659
-
-// Event peek constants
-#define SDL_PEEKEVENT 2
 
 // Sensor types
 #define SDL_SENSOR_GYRO 1
@@ -1141,11 +1298,29 @@ inline SDL_GameController* SDL_GameControllerFromInstanceID(int joyid) {
 // Additional SDL functions for xrEngine compatibility
 
 inline void SDL_FlushEvent(Uint32 type) {
-    // No-op on Android stub
+#ifdef __cplusplus
+    std::lock_guard<std::mutex> lock(SDL_AndroidEventMutex());
+    auto& queue = SDL_AndroidEventQueue();
+    for (auto it = queue.begin(); it != queue.end();) {
+        if (it->type == type)
+            it = queue.erase(it);
+        else
+            ++it;
+    }
+#endif
 }
 
 inline void SDL_FlushEvents(Uint32 minType, Uint32 maxType) {
-    // No-op on Android stub
+#ifdef __cplusplus
+    std::lock_guard<std::mutex> lock(SDL_AndroidEventMutex());
+    auto& queue = SDL_AndroidEventQueue();
+    for (auto it = queue.begin(); it != queue.end();) {
+        if (it->type >= minType && it->type <= maxType)
+            it = queue.erase(it);
+        else
+            ++it;
+    }
+#endif
 }
 
 inline int SDL_GameControllerRumble(SDL_GameController* gamecontroller, Uint16 low_frequency_rumble, 
@@ -1267,4 +1442,3 @@ inline Uint32 SDL_GetTicks() {
 // ========== SDL version check macro ==========
 #define SDL_VERSION_ATLEAST(X, Y, Z) 0
 // XR_CONTROLLER_AXIS_MAX is defined in xrEngine/xr_input.h as enum member, not macro
-

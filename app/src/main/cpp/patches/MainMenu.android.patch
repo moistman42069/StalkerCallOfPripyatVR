@@ -1,0 +1,327 @@
+diff --git a/src/xrGame/MainMenu.cpp b/src/xrGame/MainMenu.cpp
+index b22c9bbec..abcba5b84 100644
+--- a/src/xrGame/MainMenu.cpp
++++ b/src/xrGame/MainMenu.cpp
+@@ -13,12 +13,14 @@
+ #endif
+ #include "xrUICore/Buttons/UIBtnHint.h"
+ #include "xrUICore/Cursor/UICursor.h"
++#ifndef ANDROID
+ #include "xrGameSpy/GameSpy_Full.h"
+ #include "xrGameSpy/GameSpy_HTTP.h"
+ #include "xrGameSpy/GameSpy_Available.h"
+ #include "xrGameSpy/GameSpy_Browser.h"
+ #include "xrGameSpy/xrGameSpy.h"
+ #include "CdkeyDecode/cdkeydecode.h"
++#endif
+ #include "xrCore/os_clipboard.h"
+ #include "xrGame/game_type.h"
+ 
+@@ -34,9 +36,11 @@
+ 
+ #include "Common/object_broker.h"
+ 
++#ifndef ANDROID
+ #include "account_manager.h"
+ #include "login_manager.h"
+ #include "profile_store.h"
++#endif
+ #include "xrEngine/xr_input.h"
+ 
+ // fwd. decl.
+@@ -112,7 +116,9 @@ CMainMenu::CMainMenu()
+     {
+         g_btnHint = xr_new<CUIButtonHint>();
+         g_statHint = xr_new<CUIButtonHint>();
++#ifndef ANDROID
+         m_pGameSpyFull = xr_new<CGameSpy_Full>();
++#endif
+ 
+         for (cpcstr name : ErrMsgBoxTemplate)
+         {
+@@ -133,9 +139,11 @@ CMainMenu::CMainMenu()
+                 "button_yes", MESSAGE_BOX_YES_CLICKED, CUIWndCallback::void_function(this, &CMainMenu::OnDownloadMPMap));
+         }
+ 
++#ifndef ANDROID
+         m_account_mngr = xr_new<gamespy_gp::account_manager>(m_pGameSpyFull->GetGameSpyGP());
+         m_login_mngr = xr_new<gamespy_gp::login_manager>(m_pGameSpyFull);
+         m_profile_store = xr_new<gamespy_profile::profile_store>();
++#endif
+     }
+ 
+     Device.seqFrame.Add(this, REG_PRIORITY_LOW - 1000);
+@@ -150,10 +158,12 @@ CMainMenu::~CMainMenu()
+ 
+     xr_delete(m_startDialog);
+ 
++#ifndef ANDROID
+     xr_delete(m_account_mngr);
+     xr_delete(m_login_mngr);
+     xr_delete(m_profile_store);
+     xr_delete(m_pGameSpyFull);
++#endif
+ 
+     xr_delete(m_demo_info_loader);
+     delete_data(m_pMB_ErrDlgs);
+@@ -557,6 +567,7 @@ void CMainMenu::OnFrame()
+ 
+     if (IsActive() || m_sPDProgress.IsInProgress)
+     {
++#ifndef ANDROID
+         GSUpdateStatus status = m_pGameSpyFull->Update();
+         if (status != GSUpdateStatus::ConnectingToMaster)
+             Hide_CTMS_Dialog();
+@@ -566,6 +577,7 @@ void CMainMenu::OnFrame()
+         case GSUpdateStatus::Unknown: SetErrorDialog(ErrMasterServerConnectFailed); break;
+         case GSUpdateStatus::OutOfService: SetErrorDialog(ErrGSServiceFailed); break;
+         }
++#endif
+     }
+ 
+     if (IsActive())
+@@ -827,6 +839,10 @@ LPCSTR CMainMenu::GetGSVer()
+ 
+ LPCSTR CMainMenu::GetPlayerName()
+ {
++#ifdef ANDROID
++    // ANDROID_OFFLINE_MAIN_MENU: no GameSpy profile service on the Quest build.
++    m_player_name = "Stalker";
++#else
+     gamespy_gp::login_manager* l_mngr = GetLoginMngr();
+     gamespy_gp::profile const* tmp_prof = l_mngr ? l_mngr->get_current_profile() : NULL;
+ 
+@@ -840,14 +856,19 @@ LPCSTR CMainMenu::GetPlayerName()
+         GetPlayerName_FromRegistry(name, sizeof(name));
+         m_player_name = name;
+     }
++#endif
+     return m_player_name.c_str();
+ }
+ 
+ LPCSTR CMainMenu::GetCDKeyFromRegistry()
+ {
++#ifdef ANDROID
++    m_cdkey._set("");
++#else
+     string512 key = { 0 };
+     GetCDKey_FromRegistry(key);
+     m_cdkey._set(key);
++#endif
+     return m_cdkey.c_str();
+ }
+ 
+diff --git a/src/xrGame/ui_export_script.cpp b/src/xrGame/ui_export_script.cpp
+index 1ed287706..6338f14e6 100644
+--- a/src/xrGame/ui_export_script.cpp
++++ b/src/xrGame/ui_export_script.cpp
+@@ -2,16 +2,20 @@
+ 
+ #include "MainMenu.h"
+ 
++#ifndef ANDROID
+ #include "login_manager.h"
+ #include "account_manager.h"
+ #include "profile_store.h"
++#endif
+ 
+ #include "xrUICore/ComboBox/UIComboBox.h"
+ 
+ // Including CScriptXmlInit to prevent it being optimized out by the linker
+ #include "ScriptXMLInit.h" // don't remove!
+ 
++#ifndef ANDROID
+ #include "ui/ServerList.h"
++#endif
+ 
+ #include "ui/UIMapList.h"
+ #include "ui/UIScriptWnd.h"
+@@ -87,9 +91,12 @@ void CMainMenu::script_register(lua_State* luaState)
+             .def("GetCDKey", &CMainMenu::GetCDKeyFromRegistry)
+             .def("GetPlayerName", &CMainMenu::GetPlayerName)
+             .def("GetDemoInfo", &CMainMenu::GetDemoInfo)
++#ifndef ANDROID
+             .def("GetLoginMngr", &CMainMenu::GetLoginMngr)
+             .def("GetAccountMngr", &CMainMenu::GetAccountMngr)
+-            .def("GetProfileStore", &CMainMenu::GetProfileStore),
++            .def("GetProfileStore", &CMainMenu::GetProfileStore)
++#endif
++            ,
+ 
+         class_<CUIMMShniaga, CUIWindow>("CUIMMShniaga")
+             .enum_("enum_page_id")
+@@ -102,6 +109,7 @@ void CMainMenu::script_register(lua_State* luaState)
+             .def("SetPage", &CUIMMShniaga::SetPage)
+             .def("ShowPage", &CUIMMShniaga::ShowPage),
+ 
++#ifndef ANDROID
+         class_<SServerFilters>("SServerFilters")
+             .def(constructor<>())
+             .def_readwrite("empty", &SServerFilters::empty)
+@@ -128,6 +136,7 @@ void CMainMenu::script_register(lua_State* luaState)
+             .def("ShowServerInfo", &CServerList::ShowServerInfo)
+             .def("NetRadioChanged", &CServerList::NetRadioChanged)
+             .def("SetSortFunc", &CServerList::SetSortFunc),
++#endif
+ 
+         class_<CUIMapList, CUIWindow>("CUIMapList")
+             .def(constructor<>())
+diff --git a/src/xrServerEntities/object_factory_register.cpp b/src/xrServerEntities/object_factory_register.cpp
+index 84975ba15..525554982 100644
+--- a/src/xrServerEntities/object_factory_register.cpp
++++ b/src/xrServerEntities/object_factory_register.cpp
+@@ -187,27 +187,38 @@ void CObjectFactory::register_classes()
+ 
+     // Server Game type
+     add<game_sv_Single>(CLSID_SV_GAME_SINGLE, "game_sv_single");
++#ifndef ANDROID
+     add<game_sv_Deathmatch>(CLSID_SV_GAME_DEATHMATCH, "game_sv_deathmatch");
+     add<game_sv_TeamDeathmatch>(CLSID_SV_GAME_TEAMDEATHMATCH, "game_sv_team_deathmatch");
+     add<game_sv_ArtefactHunt>(CLSID_SV_GAME_ARTEFACTHUNT, "game_sv_artefact_hunt");
+     add<game_sv_CaptureTheArtefact>(CLSID_SV_GAME_CAPTURETHEARTEFACT, "game_sv_capture_the_artefact");
++#endif
+     // Client Game type
+     add<game_cl_Single>(CLSID_CL_GAME_SINGLE, "game_cl_single");
++#ifndef ANDROID
+     add<game_cl_Deathmatch>(CLSID_CL_GAME_DEATHMATCH, "game_cl_deathmatch");
+     add<game_cl_TeamDeathmatch>(CLSID_CL_GAME_TEAMDEATHMATCH, "game_cl_team_deathmatch");
+     add<game_cl_ArtefactHunt>(CLSID_CL_GAME_ARTEFACTHUNT, "game_cl_artefact_hunt");
+     add<game_cl_CaptureTheArtefact>(CLSID_CL_GAME_CAPTURETHEARTEFACT, "game_cl_capture_the_artefact");
++#endif
+ 
+     add<CUIGameSP>(CLSID_GAME_UI_SINGLE, "game_ui_single");
++#ifndef ANDROID
+     add<CUIGameDM>(CLSID_GAME_UI_DEATHMATCH, "game_ui_deathmatch");
+     add<CUIGameTDM>(CLSID_GAME_UI_TEAMDEATHMATCH, "game_ui_team_deathmatch");
+     add<CUIGameAHunt>(CLSID_GAME_UI_ARTEFACTHUNT, "game_ui_artefact_hunt");
+     add<CUIGameCTA>(CLSID_GAME_UI_CAPTURETHEARTEFACT, "game_ui_capture_the_artefact");
++#endif
+ 
++#ifdef ANDROID
++    // ANDROID_OFFLINE_MAIN_MENU: use the single-player actor implementation.
++    ADD(CActor, CSE_ALifeCreatureActor, CLSID_OBJECT_ACTOR, "actor");
++#else
+     if (ShadowOfChernobylMode)
+         ADD(CActor, CSE_ALifeCreatureActor, CLSID_OBJECT_ACTOR, "actor");
+     else
+         ADD_MP(CActor, CActorMP, CSE_ALifeCreatureActor, CSE_ActorMP, CLSID_OBJECT_ACTOR, "actor");
++#endif
+ 
+     // server entities
+     add<CSE_ALifeGroupTemplate<CSE_ALifeMonsterBase>>(CLSID_AI_FLESH_GROUP, "flesh_group");
+@@ -241,7 +252,9 @@ void CObjectFactory::register_classes()
+     ADD(CAI_Trader, CSE_ALifeTrader, CLSID_AI_TRADER, "trader");
+ 
+     ADD(CAI_Crow, CSE_ALifeCreatureCrow, CLSID_AI_CROW, "crow");
++#ifndef ANDROID
+     ADD(CAI_Rat, CSE_ALifeMonsterRat, CLSID_AI_RAT, "rat");
++#endif
+     ADD(CCar, CSE_ALifeCar, CLSID_CAR, "car");
+ 
+     ADD(CHelicopter, CSE_ALifeHelicopter, CLSID_VEHICLE_HELICOPTER, "helicopter");
+@@ -329,7 +342,9 @@ void CObjectFactory::register_classes()
+     ADD(CExplosiveRocket, CSE_Temporary, CLSID_OBJECT_G_FAKE, "wpn_grenade_fake");
+ 
+     //-----------------------------------------------------------------------------------------------------------------
++#ifndef ANDROID
+     ADD(CMPPlayersBag, CSE_ALifeItem, CLSID_OBJECT_PLAYERS_BAG, "mp_players_bag");
++#endif
+     //-----------------------------------------------------------------------------------------------------------------
+ 
+     // Zones
+diff --git a/src/Layers/xrRenderGL/glHW.cpp b/src/Layers/xrRenderGL/glHW.cpp
+index 5e37a01d4..a58d9a977 100644
+--- a/src/Layers/xrRenderGL/glHW.cpp
++++ b/src/Layers/xrRenderGL/glHW.cpp
+@@ -107,7 +107,15 @@ void CHW::CreateDevice(SDL_Window* hWnd)
+     int version;
+     {
+         ZoneScopedN("gladLoadGL");
++#ifdef ANDROID
++        // The Quest surface is OpenGL ES 3.x, not desktop OpenGL.
++        version = gladLoadGLES2(reinterpret_cast<GLADloadfunc>(SDL_GL_GetProcAddress));
++        GLAD_GL_VERSION_3_0 = GLAD_GL_ES_VERSION_3_0;
++        GLAD_GL_VERSION_3_1 = GLAD_GL_ES_VERSION_3_1;
++        GLAD_GL_VERSION_3_2 = GLAD_GL_ES_VERSION_3_2;
++#else
+         version = gladLoadGL(reinterpret_cast<GLADloadfunc>(SDL_GL_GetProcAddress));
++#endif
+     }
+     if (version == 0)
+     {
+diff --git a/src/Layers/xrRenderGL/glR_Backend_Runtime.h b/src/Layers/xrRenderGL/glR_Backend_Runtime.h
+index fc3788413..daeed88e3 100644
+--- a/src/Layers/xrRenderGL/glR_Backend_Runtime.h
++++ b/src/Layers/xrRenderGL/glR_Backend_Runtime.h
+@@ -455,7 +455,9 @@ ICF void CBackend::set_FillMode(u32 _mode)
+     if (fill_mode != _mode)
+     {
+         fill_mode = _mode;
++#ifndef ANDROID
+         glPolygonMode(GL_FRONT_AND_BACK, glStateUtils::ConvertFillMode(_mode));
++#endif
+     }
+ }
+ 
+diff --git a/src/Layers/xrRenderGL/glSH_RT.cpp b/src/Layers/xrRenderGL/glSH_RT.cpp
+index 5d967334b..a9a18bc41 100644
+--- a/src/Layers/xrRenderGL/glSH_RT.cpp
++++ b/src/Layers/xrRenderGL/glSH_RT.cpp
+@@ -88,7 +88,12 @@ void CRT::reset_end()
+ void CRT::resolve_into(CRT& destination) const
+ {
+     glReadBuffer(GL_COLOR_ATTACHMENT0);
++#ifdef ANDROID
++    constexpr GLenum drawBuffer = GL_COLOR_ATTACHMENT1;
++    glDrawBuffers(1, &drawBuffer);
++#else
+     glDrawBuffer(GL_COLOR_ATTACHMENT1);
++#endif
+ 
+     constexpr GLenum buffers[] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
+     RCache.set_RT(pRT, 0);
+diff --git a/src/Layers/xrRenderGL/glStateUtils.cpp b/src/Layers/xrRenderGL/glStateUtils.cpp
+index 96fd3663a..76b4b5f2a 100644
+--- a/src/Layers/xrRenderGL/glStateUtils.cpp
++++ b/src/Layers/xrRenderGL/glStateUtils.cpp
+@@ -164,7 +164,11 @@ GLint ConvertTextureAddressMode(u32 Mode)
+     case D3DTADDRESS_CLAMP:
+         return (GLint)GL_CLAMP_TO_EDGE;
+     case D3DTADDRESS_BORDER:
++#ifdef ANDROID
++        return (GLint)GL_CLAMP_TO_EDGE;
++#else
+         return (GLint)GL_CLAMP_TO_BORDER;
++#endif
+         //case D3DTADDRESS_MIRRORONCE:
+         //	return ;
+     default:
+diff --git a/src/Layers/xrRenderPC_GL/rgl_shaders.cpp b/src/Layers/xrRenderPC_GL/rgl_shaders.cpp
+index 281c80086..2cf99aa25 100644
+--- a/src/Layers/xrRenderPC_GL/rgl_shaders.cpp
++++ b/src/Layers/xrRenderPC_GL/rgl_shaders.cpp
+@@ -224,14 +224,24 @@ HRESULT CRender::shader_compile(pcstr name, IReader* fs, pcstr pFunctionName,
+         sh_name.append(option);
+     };
+ 
++#ifdef ANDROID
++    options.add("#version 320 es");
++    options.add("precision highp float;");
++    options.add("precision highp int;");
++#else
+     options.add("#version 410");
+     options.add("#extension GL_ARB_separate_shader_objects : enable");
++#endif
+ 
+ #ifdef DEBUG
++#ifndef ANDROID
+     options.add("#pragma optimize (off)");
++#endif
+     sh_name.append(0u);
+ #else
++#ifndef ANDROID
+     options.add("#pragma optimize (on)");
++#endif
+     sh_name.append(1u);
+ #endif
+ 
