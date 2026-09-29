@@ -228,7 +228,7 @@ index 84975ba15..525554982 100644
      ADD(CAI_Rat, CSE_ALifeMonsterRat, CLSID_AI_RAT, "rat");
 +#endif
      ADD(CCar, CSE_ALifeCar, CLSID_CAR, "car");
- 
+
      ADD(CHelicopter, CSE_ALifeHelicopter, CLSID_VEHICLE_HELICOPTER, "helicopter");
 @@ -329,7 +342,9 @@ void CObjectFactory::register_classes()
      ADD(CExplosiveRocket, CSE_Temporary, CLSID_OBJECT_G_FAKE, "wpn_grenade_fake");
@@ -398,3 +398,15 @@ diff --git a/src/xrGame/ui_export_script.cpp b/src/xrGame/ui_export_script.cpp
 +#ifndef ANDROID
  DEFINE_MIXED_DELEGATE_SCRIPT(connect_error_cb, "connect_error_cb");
 +#endif
+
+diff --git a/src/xrAICore/AISpaceBase.cpp b/src/xrAICore/AISpaceBase.cpp
+--- a/src/xrAICore/AISpaceBase.cpp
++++ b/src/xrAICore/AISpaceBase.cpp
+@@ -1,6 +1,7 @@
+ #include "pch.hpp"
+ #include "AISpaceBase.hpp"
++#include "Components/problem_solver.h"
+ #include "Navigation/game_graph.h"
+ #include "Navigation/level_graph.h"
+ #include "Navigation/PatrolPath/patrol_path_storage.h"
+ #include "Navigation/graph_engine.h"
