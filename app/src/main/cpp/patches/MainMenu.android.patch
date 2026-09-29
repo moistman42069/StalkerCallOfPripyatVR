@@ -390,3 +390,11 @@ index b5e17a126..c9e50b9f1 100644
 +constexpr u32 GP_UNIQUENICK_LEN = 21;
 +#endif
  #include "xrCore/os_clipboard.h"
+
+diff --git a/src/xrGame/ui_export_script.cpp b/src/xrGame/ui_export_script.cpp
+--- a/src/xrGame/ui_export_script.cpp
++++ b/src/xrGame/ui_export_script.cpp
+@@ -166,1 +166,3 @@
++#ifndef ANDROID
+ DEFINE_MIXED_DELEGATE_SCRIPT(connect_error_cb, "connect_error_cb");
++#endif

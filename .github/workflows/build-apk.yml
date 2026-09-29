@@ -10,6 +10,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      CCACHE_DIR: ${{ github.workspace }}/.ccache
     
     steps:
     - name: Checkout repository
@@ -42,6 +44,12 @@ jobs:
       run: |
         echo "y" | sdkmanager "ndk;25.2.9519653"
         echo "ANDROID_NDK_HOME=$ANDROID_SDK_ROOT/ndk/25.2.9519653" >> $GITHUB_ENV
+
+    - name: Install ccache
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y ccache
+        ccache --max-size=4G
     
     - name: Cache Gradle packages
       uses: actions/cache@v4
@@ -53,19 +61,26 @@ jobs:
         restore-keys: |
           ${{ runner.os }}-gradle-
 
-    - name: Cache Android native intermediates
-      uses: actions/cache@v4
+    - name: Restore C/C++ compiler cache
+      uses: actions/cache/restore@v4
       with:
-        path: app/.cxx/Debug
-        key: ${{ runner.os }}-android-cxx-${{ github.sha }}
+        path: .ccache
+        key: ${{ runner.os }}-ccache-${{ github.sha }}
         restore-keys: |
-          ${{ runner.os }}-android-cxx-
+          ${{ runner.os }}-ccache-
     
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
     
     - name: Build Debug APK
       run: ./gradlew assembleDebug --stacktrace --info
+
+    - name: Save C/C++ compiler cache
+      if: always()
+      uses: actions/cache/save@v4
+      with:
+        path: .ccache
+        key: ${{ runner.os }}-ccache-${{ github.sha }}
 
     - name: Upload Debug APK
       uses: actions/upload-artifact@v4
