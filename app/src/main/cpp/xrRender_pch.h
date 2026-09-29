@@ -304,6 +304,17 @@ using D3DVERTEXELEMENT9 = VertexElement;
 #include "xrRender_R2/r2_types.h"  // Shared GL/R2 render-target names used by OpenXRay blenders
 #include "xrEngine/device.h"        // CRenderDevice (Device object)
 
+// ModelPool.h references these particle definition types before its source file
+// includes the complete particle headers.
+namespace xray::render::RENDER_NAMESPACE
+{
+namespace PS
+{
+class CPEDef;
+class CPGDef;
+}
+}
+
 // Property system for shader blenders (xrP_TOKEN, xrP_Integer, xrP_BOOL)
 #include "xrEngine/Properties.h"
 
