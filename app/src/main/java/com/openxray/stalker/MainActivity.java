@@ -173,6 +173,21 @@ public class MainActivity extends Activity {
     }
 
     private void initializeEngine() {
+        // Store paths before starting GLSurfaceView's GL thread. A fast device
+        // can deliver the first surface callback as soon as the renderer is set.
+        try {
+            nativeInit(internalPath, externalPath);
+        } catch (Exception e) {
+            Log.e(TAG, "Failed to initialize engine", e);
+            new AlertDialog.Builder(this)
+                .setTitle("Initialization Error")
+                .setMessage("Failed to initialize OpenXRay engine:\n\n" + e.getMessage() +
+                    "\n\nMake sure all game files are copied correctly.")
+                .setPositiveButton("OK", (dialog, which) -> finish())
+                .show();
+            return;
+        }
+
         glSurfaceView = new GameSurfaceView(this);
         glSurfaceView.setEGLContextFactory(new GLSurfaceView.EGLContextFactory() {
             @Override
@@ -225,19 +240,7 @@ public class MainActivity extends Activity {
         glSurfaceView.setFocusableInTouchMode(true);
 
         setContentView(glSurfaceView);
-
-        try {
-            nativeInit(internalPath, externalPath);
-            glSurfaceView.requestFocus();
-        } catch (Exception e) {
-            Log.e(TAG, "Failed to initialize engine", e);
-            new AlertDialog.Builder(this)
-                .setTitle("Initialization Error")
-                .setMessage("Failed to initialize OpenXRay engine:\n\n" + e.getMessage() +
-                    "\n\nMake sure all game files are copied correctly.")
-                .setPositiveButton("OK", (dialog, which) -> finish())
-                .show();
-        }
+        glSurfaceView.requestFocus();
     }
 
     private final class GameSurfaceView extends GLSurfaceView {

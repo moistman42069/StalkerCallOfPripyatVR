@@ -303,6 +303,9 @@ list(FILTER XRGAME_SOURCES EXCLUDE REGEX ".*MathUtils.*")
 # The obsolete fog-of-war UI is commented out in OpenXRay's own game target and
 # includes a removed `ui/UIWindow.h` path.
 list(FILTER XRGAME_SOURCES EXCLUDE REGEX ".*LevelFogOfWar.*")
+# The frame-rectangle widget is also commented out upstream and depends on the
+# removed UIStaticItem header.
+list(FILTER XRGAME_SOURCES EXCLUDE REGEX ".*/UIFrameRect\\.cpp$")
 # Exclude ObjectDump (debug-only code with CObject dependencies, uses Fbox instead of Fbox3)
 list(FILTER XRGAME_SOURCES EXCLUDE REGEX ".*ObjectDump.*")
 # Exclude test files (unit tests, not needed for game build)
