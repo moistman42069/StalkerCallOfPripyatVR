@@ -300,6 +300,9 @@ list(FILTER XRGAME_SOURCES EXCLUDE REGEX ".*(MPPlayersBag).*")
 # Keep MainMenu and the game UI: CGamePersistent creates them during startup.
 # Exclude MathUtils (test/debug code with API incompatibilities)
 list(FILTER XRGAME_SOURCES EXCLUDE REGEX ".*MathUtils.*")
+# The obsolete fog-of-war UI is commented out in OpenXRay's own game target and
+# includes a removed `ui/UIWindow.h` path.
+list(FILTER XRGAME_SOURCES EXCLUDE REGEX ".*LevelFogOfWar.*")
 # Exclude ObjectDump (debug-only code with CObject dependencies, uses Fbox instead of Fbox3)
 list(FILTER XRGAME_SOURCES EXCLUDE REGEX ".*ObjectDump.*")
 # Exclude test files (unit tests, not needed for game build)
