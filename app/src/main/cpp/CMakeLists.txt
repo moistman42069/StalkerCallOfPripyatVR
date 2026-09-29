@@ -244,8 +244,10 @@ target_link_libraries(xrParticles PRIVATE
 file(GLOB_RECURSE XRPHYSICS_SOURCES ${XRAY_SRC}/xrPhysics/*.cpp)
 list(FILTER XRPHYSICS_SOURCES EXCLUDE REGEX ".*Editor.*")
 list(FILTER XRPHYSICS_SOURCES EXCLUDE REGEX ".*_test.*")
+list(FILTER XRPHYSICS_SOURCES EXCLUDE REGEX ".*/tri-colliderknoopc/dcTriListCollider\\.cpp$")
 add_library(xrPhysics STATIC ${XRPHYSICS_SOURCES})
-target_compile_definitions(xrPhysics PRIVATE ECORE_API=)
+target_compile_definitions(xrPhysics PRIVATE ECORE_API= XRPHYSICS_EXPORTS PURE_DYNAMIC_CAST)
+target_precompile_headers(xrPhysics PRIVATE ${XRAY_SRC}/xrPhysics/StdAfx.h)
 target_link_libraries(xrPhysics PRIVATE
     xrCore
     xrEngine
