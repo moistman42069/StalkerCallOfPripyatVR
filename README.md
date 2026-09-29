@@ -1,4 +1,4 @@
-# S.T.A.L.K.E.R. OpenXRay Android
+# S.T.A.L.K.E.R. OpenXRay Android (Native Quest 3 VR port)
 
 Native Android port of OpenXRay engine for S.T.A.L.K.E.R.: Call of Pripyat using OpenGL ES 3.0 and Mali GPU acceleration.
 
