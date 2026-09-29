@@ -180,6 +180,8 @@ list(FILTER XRRENDER_SOURCES EXCLUDE REGEX ".*_test.*")
 # Exclude R1/R2/R4 DirectX renderers
 list(FILTER XRRENDER_SOURCES EXCLUDE REGEX ".*/R2_.*")
 list(FILTER XRRENDER_SOURCES EXCLUDE REGEX ".*/R4_.*")
+# This blender is R1-only and deliberately rejected when building the R_GL renderer.
+list(FILTER XRRENDER_SOURCES EXCLUDE REGEX ".*/blenders/Blender_Shadow_World\\.cpp$")
 # Exclude backend implementations (we'll add GL backend separately)
 list(FILTER XRRENDER_SOURCES EXCLUDE REGEX ".*Backend_Runtime.*")
 list(FILTER XRRENDER_SOURCES EXCLUDE REGEX ".*ShaderCache.*")
