@@ -336,3 +336,57 @@ index 281c80086..2cf99aa25 100644
      sh_name.append(1u);
  #endif
  
+diff --git a/src/xrGame/ui/UIOptConCom.cpp b/src/xrGame/ui/UIOptConCom.cpp
+--- a/src/xrGame/ui/UIOptConCom.cpp
++++ b/src/xrGame/ui/UIOptConCom.cpp
+@@ -8,4 +8,8 @@
+ #include "RegistryFuncs.h"
+ #include "xrGameSpy/xrGameSpy_MainDefs.h"
++#ifndef ANDROID
+ #include "xrGameSpy/GameSpy_GP.h"
++#else
++constexpr u32 GP_UNIQUENICK_LEN = 21;
++#endif
+ #include "ui/UICDkey.h"
+
+diff --git a/src/xrGame/ui/UIMMShniaga.cpp b/src/xrGame/ui/UIMMShniaga.cpp
+--- a/src/xrGame/ui/UIMMShniaga.cpp
++++ b/src/xrGame/ui/UIMMShniaga.cpp
+@@ -12,6 +12,10 @@
+ #include "Actor.h"
+ #include "saved_game_wrapper.h"
++#ifndef ANDROID
+ #include "login_manager.h"
++#endif
+ #include "MainMenu.h"
++#ifndef ANDROID
+ #include "xrGameSpy/GameSpy_Full.h"
++#endif
+ #include "UIHelper.h"
+
+diff --git a/src/xrGame/console_commands.cpp b/src/xrGame/console_commands.cpp
+--- a/src/xrGame/console_commands.cpp
++++ b/src/xrGame/console_commands.cpp
+@@ -119,2 +119,4 @@
++#ifndef ANDROID
+ void register_mp_console_commands();
++#endif
+ //-----------------------------------------------------------
+@@ -2630,2 +2632,4 @@
++#ifndef ANDROID
+     register_mp_console_commands();
++#endif
+ }
+diff --git a/src/xrGame/ui/UICDkey.cpp b/src/xrGame/ui/UICDkey.cpp
+index b5e17a126..c9e50b9f1 100644
+--- a/src/xrGame/ui/UICDkey.cpp
++++ b/src/xrGame/ui/UICDkey.cpp
+@@ -8,4 +8,8 @@
+ #include "xrGameSpy/xrGameSpy_MainDefs.h"
+ #include "player_name_modifyer.h"
++#ifndef ANDROID
+ #include "xrGameSpy/GameSpy_GP.h"
++#else
++constexpr u32 GP_UNIQUENICK_LEN = 21;
++#endif
+ #include "xrCore/os_clipboard.h"

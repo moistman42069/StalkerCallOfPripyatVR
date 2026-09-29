@@ -52,6 +52,14 @@ jobs:
         key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
         restore-keys: |
           ${{ runner.os }}-gradle-
+
+    - name: Cache Android native intermediates
+      uses: actions/cache@v4
+      with:
+        path: app/.cxx/Debug
+        key: ${{ runner.os }}-android-cxx-${{ github.sha }}
+        restore-keys: |
+          ${{ runner.os }}-android-cxx-
     
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
