@@ -181,7 +181,8 @@ list(FILTER XRRENDER_SOURCES EXCLUDE REGEX ".*_test.*")
 list(FILTER XRRENDER_SOURCES EXCLUDE REGEX ".*/R2_.*")
 list(FILTER XRRENDER_SOURCES EXCLUDE REGEX ".*/R4_.*")
 # This blender is R1-only and deliberately rejected when building the R_GL renderer.
-list(FILTER XRRENDER_SOURCES EXCLUDE REGEX ".*/blenders/Blender_Shadow_World\\.cpp$")
+# The glob below sees R1-only blenders that the upstream R_GL target omits.
+list(FILTER XRRENDER_SOURCES EXCLUDE REGEX ".*/blenders/(BlenderDefault|Blender_LaEmB|Blender_Screen_GRAY|Blender_Shadow_Texture|Blender_Shadow_World|Blender_Vertex|Blender_Vertex_aref|blender_light)\\.cpp$")
 # Exclude backend implementations (we'll add GL backend separately)
 list(FILTER XRRENDER_SOURCES EXCLUDE REGEX ".*Backend_Runtime.*")
 list(FILTER XRRENDER_SOURCES EXCLUDE REGEX ".*ShaderCache.*")
