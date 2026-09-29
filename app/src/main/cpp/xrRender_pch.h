@@ -367,6 +367,7 @@ namespace xray::render::RENDER_NAMESPACE {
 
 // Light system - full light class definition (needed by LightTrack.cpp, Light_Package.cpp - fixes 76 errors)
 #include "Layers/xrRender/light.h"
+#include "Layers/xrRender/Light_DB.h"
 
 // FSlideWindowItem forward declaration (needed by FTreeVisual.cpp - fixes 4 errors)
 struct FSlideWindowItem;
@@ -414,8 +415,8 @@ namespace xray::render::RENDER_NAMESPACE {
 
         // Dynamic lighting system (used by Light_DB.cpp, LightTrack.cpp)
         void* L_Dynamic = nullptr;              // Dynamic lights container
-        bool is_sun_static = false;             // Sun is static flag
-        void* Lights = nullptr;                 // Lights container for LightTrack
+        bool is_sun_static() const { return false; }  // Sun is dynamic in this Android renderer shim
+        CLight_DB Lights;                        // Light database used by sun/light queries
 
         // Render state flags (legacy DirectX 9 renderer)
         struct {
@@ -463,7 +464,6 @@ namespace xray::render::RENDER_NAMESPACE {
 
         // SWI (slide window item) accessor (used by FTreeVisual.cpp)
         // Returns FSlideWindowItem*, not void*
-        struct FSlideWindowItem;  // Forward declaration
         FSlideWindowItem* getSWI(int) { return nullptr; }
 
         // Immediate context accessor (for RCache macro)
