@@ -10,9 +10,12 @@
 #include <memory>
 #include <string>
 
-// xrCore.h must be included before other OpenXRay headers; it defines the
-// platform export and calling-convention macros used by the engine.
+// Match the OpenXRay engine precompiled-header order: Common exposes the
+// global engine API, and Engine.h defines ENGINE_API before device.h pulls in
+// statistics and renderer factory declarations.
+#include "Common/Common.hpp"
 #include "xrCore/xrCore.h"
+#include "xrEngine/Engine.h"
 #include "xrEngine/device.h"
 #include "xrEngine/x_ray.h"
 #include "xrGame/xrGame.h"
